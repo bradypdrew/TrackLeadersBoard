@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <properties>
+        <property id="RacerName" type="string">Racer Name</property>
+        <property id="RaceID" type="string">florida500-25</property>
+    </properties>
+</resources>

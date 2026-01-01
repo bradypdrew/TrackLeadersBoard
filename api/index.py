@@ -48,5 +48,5 @@ def scrape_trackleaders(race_id):
         return jsonify({"error": str(e)}), 500
 
 # Required for Vercel
-def handler(event, context):
-    return app(event, context)
+#def handler(event, context):
+#    return app(event, context)

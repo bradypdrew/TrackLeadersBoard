@@ -1,0 +1,9 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/race/(.*)",
+            "destination": "/api/index.py"
+        }
+    ]
+}

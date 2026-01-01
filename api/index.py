@@ -1,52 +1,46 @@
 from flask import Flask, jsonify
-import requests
-from bs4 import BeautifulSoup
 from flask_cors import CORS
+import requests
 
 app = Flask(__name__)
-CORS(app) # This ensures your Garmin device doesn't get blocked by security policies
+CORS(app)
 
 @app.route('/race/<race_id>')
 def scrape_trackleaders(race_id):
-    # TrackLeaders 'f' pages are usually the mobile-friendly/lite versions
-    url = f"https://trackleaders.com/{race_id}"
-    
+    # This is the direct data source used by the TrackLeaders sidebar
+    url = f"https://trackleaders.com/spot/{race_id}/sortlist.json"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
         response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
         
+        # If the JSON doesn't exist, the race ID might be wrong
+        if response.status_code != 200:
+            return jsonify({"error": "Race data not found"}), 404
+
+        data = response.json()
         riders = []
-        # Find the table - TrackLeaders usually uses <tr> tags for rows
-        rows = soup.find_all('tr')
-        
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) >= 3:
-                # This logic depends on the specific race table layout
-                # Usually: Col 0 = Rank, Col 1 = Name, Col 2 = Miles
-                name = cols[1].text.strip()
-                miles_text = cols[2].text.strip()
+
+        # TrackLeaders sortlist.json structure:
+        # aaData is a list of lists. 
+        # Usually: index 1 = Name, index 3 = Miles
+        for entry in data.get("aaData", []):
+            if len(entry) >= 4:
+                # TrackLeaders puts HTML tags in the JSON (like <b>Name</b>)
+                # We need to strip those out
+                name = entry[1].replace('<b>','').replace('</b>','')
                 
-                # Try to convert miles to a float for the Garmin
+                # Miles is usually a string like "450.2"
                 try:
-                    miles = float(miles_text)
-                except ValueError:
+                    miles = float(entry[3])
+                except (ValueError, TypeError):
                     miles = 0.0
-                #miles = miles_text
                 
                 riders.append({"n": name, "m": miles})
-        
-        # Sort by miles descending (leader first)
+
+        # Sort by miles descending
         riders.sort(key=lambda x: x['m'], reverse=True)
-        
         return jsonify(riders)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-# Required for Vercel
-#def handler(event, context):
-#    return app(event, context)

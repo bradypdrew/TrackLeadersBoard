@@ -9,7 +9,7 @@ CORS(app) # This ensures your Garmin device doesn't get blocked by security poli
 @app.route('/race/<race_id>')
 def scrape_trackleaders(race_id):
     # TrackLeaders 'f' pages are usually the mobile-friendly/lite versions
-    url = f"https://trackleaders.com/{race_id}f"
+    url = f"https://trackleaders.com/{race_id}"
     
     try:
         headers = {

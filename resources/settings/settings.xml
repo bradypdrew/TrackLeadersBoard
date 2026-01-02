@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:iq="http://www.garmin.com/xml/connectiq">
     <settings>
-        <setting propertyKey="@Properties.RacerName" title="Racer Name">
+        <setting propertyKey="@Properties.RaceID" title="Race ID* (trackleaders.com/{Race ID})">
             <settingConfig type="alphaNumeric" />
         </setting>
-        <setting propertyKey="@Properties.RaceID" title="Race ID">
+        <setting propertyKey="@Properties.RacerName" title="Racer Name (optional, for highlighting)">
+            <settingConfig type="alphaNumeric" />
+        </setting>
+        <setting propertyKey="@Properties.RacerGender" title="Racer Gender (optional, for filtering)">
+            <settingConfig type="alphaNumeric" />
+        </setting>
+        <setting propertyKey="@Properties.RacerCategory" title="Racer Category (optional, for filtering)">
             <settingConfig type="alphaNumeric" />
         </setting>
     </settings>

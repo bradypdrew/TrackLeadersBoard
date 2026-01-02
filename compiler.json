@@ -1,0 +1,8 @@
+{
+    "project": "manifest.xml",
+    "devices": [
+        "edge1050"
+    ],
+    "type": "prg",
+    "output": "bin/TrackLeaders.prg"
+}

@@ -11,23 +11,11 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     private var secondCounter = 0;
     private var fetchInterval = 30; // 10 minutes in seconds
     private var riders = null;
+    private var startIdx = 0; // Used for scrolling
     private var lastUpdateStr = "Never";
 
     function initialize() {
         DataField.initialize();
-        //{riders = [
-        //    {"n"=>"S. Perez", "m"=>532.3},
-        //    {"n"=>"N. DeHaan", "m"=>510.5},
-        //    {"n"=>"P. Wickward", "m"=>485.2},
-        //    {"n"=>"J. Schlitter", "m"=>450.0},
-        //    {"n"=>"I. Micklisch", "m"=>420.1},
-        //    {"n"=>"K. Woodward", "m"=>380.5},
-        //    {"n"=>"B. Drew", "m"=>350.2},
-        //    {"n"=>"C. Iordan", "m"=>310.8},
-        //    {"n"=>"D. Serra", "m"=>290.4},
-        //    {"n"=>"D. Haluza", "m"=>250.6}
-        //] as Array<Dictionary>;
-        
         // Initial fetch when the app starts
         fetchRiderData();
     }
@@ -35,7 +23,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     function fetchRiderData() {
         var raceID = Application.Properties.getValue("RaceID");
         // We point to a middleware/proxy because Garmin cannot parse raw HTML
-        var url = "https://your-api-proxy.com/trackleaders/" + raceID; 
+        var url = "https://track-leaders-board-6hj2.vercel.app/race/" + raceID; 
 
         var options = {
             :httpMethod => Communications.HTTP_REQUEST_METHOD_GET,
@@ -51,6 +39,9 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         if (responseCode == 200 && data != null) {
             // Success! Update our riders array and refresh the screen
             riders = data as Array<Dictionary>;
+            var clock = System.getClockTime();
+            // Format as HH:MM (e.g., 14:05 or 2:05)
+            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
             WatchUi.requestUpdate();
         } else {
             // Error handling (e.g., 404, -104 for no phone connection)
@@ -59,8 +50,15 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     }
 
     function onUpdate(dc) {
+        // Scrolling configuration
+        var slowScrollSpeed = 5; // Scroll speed in seconds when a highlight is set
+        var fastScrollSpeed = 2; // Scroll speed in seconds when no highlight is set
+        var highlightFound = false;
+
         // Import Settings
         var highlightName = Application.Properties.getValue("RacerName");
+        var genderProp = Application.Properties.getValue("RacerGender");
+        var categoryProp = Application.Properties.getValue("RacerCategory");
 
         // Update the second counter
         secondCounter = secondCounter + 1;
@@ -88,6 +86,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
 
         var width = dc.getWidth();
+        var height = dc.getHeight();
         var font = Graphics.FONT_SMALL;
         var rowHeight = dc.getFontHeight(font) + 5;
         var padding = 20;
@@ -99,7 +98,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         var fontHeight = dc.getFontHeight(headerFont);
         var headerHeight = fontHeight + 20;
         var footerHeight = 20;
-        var usableHeight = dc.getHeight() - headerHeight;
+        var usableHeight = height - headerHeight;
         dc.drawLine(0, headerHeight-10, width, headerHeight-10);
 
         // If no riders data yet, show "Downloading" message
@@ -114,6 +113,33 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             return; // Stop drawing the rest of the UI until data arrives
         }
 
+        // Filter riders based on gender and category, if specified
+        // Normalize: Treat null or empty as "ALL"
+        var gFilter = (genderProp == null || genderProp.length() == 0) ? "ALL" : genderProp.toUpper();
+        var cFilter = (categoryProp == null || categoryProp.length() == 0) ? "ALL" : categoryProp.toUpper();
+        var filteredRiders = [];
+        for (var i = 0; i < riders.size(); i++) {
+            var r = riders[i] as Dictionary;
+            var rG = r.get("g");
+            var rC = r.get("c");
+            var rGender = (rG != null) ? (rG as String).toUpper() : "";
+            var rCategory = (rC != null) ? (rC as String).toUpper() : "";
+
+            // Match if filter is "ALL" OR if it's an exact match
+            var genderMatch = (gFilter.equals("ALL") || rGender.equals(gFilter));
+            var categoryMatch = (cFilter.equals("ALL") || rCategory.equals(cFilter));
+
+            if (genderMatch && categoryMatch) {
+                filteredRiders.add(r);
+            }
+        }
+
+        var totalRiders = filteredRiders.size();
+        if (totalRiders == 0) {
+            dc.drawText(width/2, height/2, font, "No Matches Found", Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
+
         // Divide usable space by row height
         // Use .toNumber() to ensure we don't try to show a "partial" rider
         var ridersPerPage = (usableHeight / rowHeight).toNumber();
@@ -121,63 +147,97 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             ridersPerPage = 1; 
         }
 
+        // Determine if scrolling is needed
+        var shouldScroll = (totalRiders > ridersPerPage);
+
+        if (!shouldScroll) {
+            startIdx = 0; // Lock to the top
+        }
+
         // Draw Leaderboard Rows
-        var startIdx = 0; //Update this to implement scrolling later
-        var totalRiders = riders.size() as Number;
-        for (var i = 0; i < ridersPerPage; i++) {
-            var currentRiderIdx = (startIdx + i) as Number;
-            if (currentRiderIdx >= totalRiders) { break; }
-
+        var virtualTotal = shouldScroll ? (totalRiders + 3) : totalRiders; // Add 3 blank rows for spacing when scrolling
+        
+        // Only loop as many times as we have riders if the list is short
+        var iterations = shouldScroll ? ridersPerPage : totalRiders;
+        for (var i = 0; i < iterations; i++) {
             var yPos = headerHeight + (i * rowHeight);
+            var virtualIdx = (startIdx + i) % virtualTotal;
             
-            // Use 'as' to stop the warning
-            var rider = riders[currentRiderIdx];
+            if (virtualIdx < totalRiders) {
+                var rider = filteredRiders[virtualIdx] as Dictionary;
+                // Use .get() and 'as' for the values too
+                var name = rider.get("n") as String;
+                var nameSearch = name.toUpper();
 
-            // Use .get() and 'as' for the values too
-            var name = rider.get("n") as String;
-            var nameSearch = name.toUpper();
-            var rawMiles = rider.get("m");
-            var mileStr = "0.0";
-            if (rawMiles instanceof Lang.Float || rawMiles instanceof Lang.Double) {
-                // "%.1f" means: 1 decimal place, floating point
-                mileStr = rawMiles.format("%.1f"); 
-            } else {
-                // Fallback if it's already a string or integer
-                mileStr = rawMiles.toString();
-            }
+                // Format miles to 1 decimal place
+                var rawMiles = rider.get("m");
+                var mileStr = "0.0";
+                if (rawMiles instanceof Lang.Float || rawMiles instanceof Lang.Double) {
+                    // "%.1f" means: 1 decimal place, floating point
+                    mileStr = rawMiles.format("%.1f"); 
+                } else {
+                    // Fallback if it's already a string or integer
+                    mileStr = rawMiles.toString();
+                }
 
-            // Highlight logic
-            if (highlightName != null && highlightName.length() > 0) {
-                highlightName = highlightName.toUpper();
-                if (nameSearch.find(highlightName) != null) {
-                    dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-                    dc.fillRoundedRectangle(
-                        5,                     // x: slightly in from the left
-                        yPos - 4,                    // y: centered on text
-                        dc.getWidth() - 10, // width: leave padding on both sides
-                        rowHeight - 2,                          // height
-                        8                 // radius
-                    );
-                    dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);                  
+                // Truncate the name if it's too long
+                var mileWidth = dc.getTextWidthInPixels(mileStr, font);
+                var nameMaxWidth = width - mileWidth - 30; // 10px padding on left, 10px on right, 10px between
+                var displayName = name;
+                if (dc.getTextWidthInPixels(displayName, font) > nameMaxWidth) {
+                    displayName = displayName + "...";
+                    while (displayName.length() > 2 && dc.getTextWidthInPixels(displayName, font) > nameMaxWidth) {
+                        displayName = displayName.substring(0, displayName.length() - 4) + "...";
+                    }
+                }
+
+                // Highlight logic
+                if (highlightName != null && highlightName.length() > 0) {
+                    highlightName = highlightName.toUpper();
+                    if (nameSearch.find(highlightName) != null) {
+                        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+                        dc.fillRoundedRectangle(
+                            5,                     // x: slightly in from the left
+                            yPos - 4,                    // y: centered on text
+                            width - 10, // width: leave padding on both sides
+                            rowHeight - 2,                          // height
+                            8                 // radius
+                        );
+                        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);                  
+                        highlightFound = true;
+                    } else {
+                        dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
+                    }
                 } else {
                     dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
                 }
-            } else {
-                dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
-            }
 
-            dc.drawText(10, yPos, font, name, Graphics.TEXT_JUSTIFY_LEFT);
-            dc.drawText(width - 10, yPos, font, mileStr, Graphics.TEXT_JUSTIFY_RIGHT);
+                dc.drawText(10, yPos, font, displayName, Graphics.TEXT_JUSTIFY_LEFT);
+                dc.drawText(width - 10, yPos, font, mileStr, Graphics.TEXT_JUSTIFY_RIGHT);
+            }
+        }
+
+        // Update scrolling index
+        if (highlightFound) {
+            if (secondCounter % slowScrollSpeed == 0) {
+                //startIdx = (startIdx + 1) % totalRiders;
+                startIdx = (startIdx + 1) % virtualTotal;
+            }
+        } else {
+            if (secondCounter % fastScrollSpeed == 0) {
+                //startIdx = (startIdx + 1) % totalRiders;
+                startIdx = (startIdx + 1) % virtualTotal;
+            }
         }
 
         // Add a timestamp at the bottom
 
         // Draw a subtle separator line
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(10, footerHeight - 5, width - 10, footerHeight - 5);
+        dc.drawLine(10, height - footerHeight - 5, width - 10, height - footerHeight - 5);
 
         // Draw the timestamp
         var statusText = "Last Update: " + lastUpdateStr;
-        dc.drawText(width / 2, footerHeight, Graphics.FONT_XTINY, statusText, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(width / 2, height - footerHeight, Graphics.FONT_XTINY, statusText, Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

@@ -12,7 +12,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     public var startIdx = 0; // Used for scrolling
     public var width = 0;
     private var secondCounter = 0;
-    private var fetchInterval = 30; // 10 minutes in seconds
+    private var fetchInterval = 600; // Time (in sec) between data fetches
     private var lastUpdateStr = "Never";
 
     function initialize() {

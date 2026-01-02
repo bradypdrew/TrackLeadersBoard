@@ -8,10 +8,11 @@ import Toybox.Graphics;
 
 class TrackLeadersBoardView extends WatchUi.DataField {
     // GLOBAL VARIABLES (Accessible by all functions in this class)
+    public var riders = null as Array<Dictionary>; // Array to hold rider data
+    public var startIdx = 0; // Used for scrolling
+    public var width = 0;
     private var secondCounter = 0;
     private var fetchInterval = 30; // 10 minutes in seconds
-    private var riders = null;
-    private var startIdx = 0; // Used for scrolling
     private var lastUpdateStr = "Never";
 
     function initialize() {

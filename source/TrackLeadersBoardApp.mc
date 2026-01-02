@@ -3,6 +3,7 @@ import Toybox.Lang;
 import Toybox.WatchUi;
 
 class TrackLeadersBoardApp extends Application.AppBase {
+    var mView;
 
     function initialize() {
         AppBase.initialize();
@@ -18,7 +19,19 @@ class TrackLeadersBoardApp extends Application.AppBase {
 
     // Return the initial view of your application here
     function getInitialView() {
-        return [ new TrackLeadersBoardView() ];
+        mView = new TrackLeadersBoardView();
+        // Return only the view in the array
+        return [ mView ] as [Views];
+    }
+
+    function getSettingsView() {
+        var menu = new WatchUi.Menu2({:title=>"Board Settings"});
+        
+        menu.addItem(new WatchUi.MenuItem("Filter Category", "Current: " + Application.Properties.getValue("RacerCategory"), "cat", null));
+        menu.addItem(new WatchUi.MenuItem("Filter Gender", "Current: " + Application.Properties.getValue("RacerGender"), "gen", null));
+        menu.addItem(new WatchUi.MenuItem("Highlight Rider", "Current: " + Application.Properties.getValue("RacerName"), "high", null));
+
+        return [ menu, new TrackLeadersBoardMenuDelegate(mView) ] as [Views, InputDelegates];
     }
         
     // This forces the screen to redraw the moment settings are updated

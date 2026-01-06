@@ -6,7 +6,7 @@ class TrackLeadersSettingsMenu extends WatchUi.Menu2 {
     function initialize(view) {
         Menu2.initialize({:title=>"Filter Category"});
         
-        var allRiders = view.riders;
+        var allRiders = view.riders as Array;
         if (allRiders != null) {
             var menu = new WatchUi.Menu2({:title=>"Filter Category"});
             
@@ -75,11 +75,12 @@ class TrackLeadersBoardMenuDelegate extends WatchUi.Menu2InputDelegate {
     function pushGenderMenu(parentMenu) {
         var menu = new WatchUi.Menu2({:title=>"Gender"});
         menu.addItem(new WatchUi.MenuItem("Show All", null, "ALL", null));
-        var riders = mView.riders;
+        var riders = mView.riders as Array;
         if (riders != null) {
             var uniqueCategories = {};
             for (var i = 0; i < riders.size(); i++) {
-                var cat = riders[i].get("g");
+                var rider = riders[i] as Dictionary;
+                var cat = rider.get("g") as String;
                 if (cat != null) { uniqueCategories[cat] = true; }
             }
 
@@ -98,10 +99,10 @@ class TrackLeadersBoardMenuDelegate extends WatchUi.Menu2InputDelegate {
         var menu = new WatchUi.Menu2({:title=>"Highlight Rider"});
         menu.addItem(new WatchUi.MenuItem("None", null, "NONE", null));
         
-        var riders = mView.riders;
+        var riders = mView.riders as Array;
         if (riders != null) {
             for (var i = 0; i < riders.size(); i++) {
-                var name = riders[i].get("n") as String;
+                var name = (riders[i] as Dictionary).get("n") as String;
                 menu.addItem(new WatchUi.MenuItem(name, null, name, null));
             }
         }
@@ -113,11 +114,11 @@ class TrackLeadersBoardMenuDelegate extends WatchUi.Menu2InputDelegate {
         var menu = new WatchUi.Menu2({:title=>"Category"});
         menu.addItem(new WatchUi.MenuItem("Show All", null, "ALL", null));
         
-        var riders = mView.riders;
+        var riders = mView.riders as Array;
         if (riders != null) {
             var uniqueCategories = {};
             for (var i = 0; i < riders.size(); i++) {
-                var cat = riders[i].get("c");
+                var cat = (riders[i] as Dictionary).get("c");
                 if (cat != null) { uniqueCategories[cat] = true; }
             }
 

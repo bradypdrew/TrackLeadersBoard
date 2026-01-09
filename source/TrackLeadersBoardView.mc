@@ -143,8 +143,8 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         var clock = System.getClockTime();
         var timeStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
         dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(padding, 10, smallFont, "TRACKLEADERS BOARD", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.drawText(width - padding, 10, smallFont, timeStr, Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(padding, 10, smallFont, timeStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(width - padding, 10, smallFont, "TRACKLEADERS BOARD", Graphics.TEXT_JUSTIFY_RIGHT);
         var headerHeight = dc.getFontHeight(smallFont) + 20;
         var footerHeight = headerHeight - 15;
         var usableHeight = height - headerHeight - footerHeight - dashboardHeight;

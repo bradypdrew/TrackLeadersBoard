@@ -13,6 +13,13 @@ def scrape_trackleaders(race_id):
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            return {"error": "TrackLeaders returned status " + str(response.status_code)}
+        try:
+            data = response.json()
+        except:
+            # This means it got HTML instead of JSON
+            return {"error": "Invalid data received from TrackLeaders. Check RaceID."}
         raw_data = response.json()
         riders = []
 

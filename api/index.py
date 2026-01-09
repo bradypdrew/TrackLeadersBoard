@@ -39,8 +39,9 @@ def scrape_trackleaders(race_id):
                 name = name_match.group(1) if name_match else "Unknown"
 
                 # 2. EXTRACT MILES
-                mile_match = re.search(r"'>([\d\.]+)\s*mi", entry[1])
-                miles = float(mile_match.group(1)) if mile_match else (999.0 if "FIN" in entry[1] else 0.0)
+                val_str = str(entry[1])
+                mile_match = re.search(r"'>([\d\.]+)\s*mi", val_str)
+                miles = float(mile_match.group(1)) if mile_match else (999.0 if "FIN" in val_str else 0.0)
 
                 # 3. EXTRACT METADATA (Gender & Category)
                 # Look for the value attribute in the hidden input

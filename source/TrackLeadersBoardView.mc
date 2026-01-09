@@ -88,8 +88,13 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             // Format as HH:MM (e.g., 14:05 or 2:05)
             lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
             WatchUi.requestUpdate();
+        } else if (responseCode == 403) {
+            lastUpdateStr = "Blocked by Server";
+            WatchUi.requestUpdate();
+            System.println("Error Code: " + responseCode);
         } else {
-            // Error handling (e.g., 404, -104 for no phone connection)
+            lastUpdateStr = "Error: " + responseCode;
+            WatchUi.requestUpdate();
             System.println("Error Code: " + responseCode);
         }
     }

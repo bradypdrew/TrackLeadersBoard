@@ -66,6 +66,9 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     }
 
     function fetchRiderData() {
+        // FREE THE MEMORY FIRST
+        riders = null;
+
         var raceID = Application.Properties.getValue("RaceID");
         // We point to a middleware/proxy because Garmin cannot parse raw HTML
         var url = "https://track-leaders-board-6hj2.vercel.app/race/" + raceID; 
@@ -89,9 +92,9 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
             WatchUi.requestUpdate();
         } else {
-            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " Error: " + responseCode;
+            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " - Error " + responseCode;
             WatchUi.requestUpdate();
-            System.println(clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " Error: " + responseCode);
+            System.println(clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " - Error " + responseCode);
         }
     }
 

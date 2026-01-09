@@ -13,7 +13,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     public var width = 0;
     private var secondCounter = 0;
     private var fetchInterval = 600; // Time (in sec) between data fetches
-    private var lastUpdateStr = "Never";
+    private var lastUpdateStr = "--:--";
     private var _speed = 0.0;
     private var _power3s = 0;
     private var _powerSamples = [0, 0, 0] as Array<Number>;
@@ -81,21 +81,17 @@ class TrackLeadersBoardView extends WatchUi.DataField {
 
     function onReceive(responseCode as Number, data as Dictionary or String or Null) as Void {
         System.println("Response Code: " + responseCode);
+        var clock = System.getClockTime();
         if (responseCode == 200 && data != null) {
             // Success! Update our riders array and refresh the screen
             riders = data as Array<Dictionary>;
-            var clock = System.getClockTime();
             // Format as HH:MM (e.g., 14:05 or 2:05)
             lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
             WatchUi.requestUpdate();
-        } else if (responseCode == 403) {
-            lastUpdateStr = "Blocked by Server";
-            WatchUi.requestUpdate();
-            System.println("Error Code: " + responseCode);
         } else {
-            lastUpdateStr = "Error: " + responseCode;
+            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " Error: " + responseCode;
             WatchUi.requestUpdate();
-            System.println("Error Code: " + responseCode);
+            System.println(clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " Error: " + responseCode);
         }
     }
 
@@ -193,9 +189,11 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             dc.setColor(foregroundColor, Graphics.COLOR_TRANSPARENT);
             dc.drawText(width / 2, headerHeight + (usableHeight / 2), Graphics.FONT_MEDIUM, "Downloading Riders...", Graphics.TEXT_JUSTIFY_CENTER);
             
-            // Optional: Draw a "Trying to reach [RaceID]" message below it
+            // Draw a "Trying to reach [RaceID]" message below it
             var raceID = Application.Properties.getValue("RaceID");
             dc.drawText(width / 2, headerHeight + (usableHeight / 2) + dc.getFontHeight(Graphics.FONT_MEDIUM)+5, Graphics.FONT_SMALL, "Race: " + raceID, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(width / 2, headerHeight + (usableHeight / 2) + dc.getFontHeight(Graphics.FONT_MEDIUM)+dc.getFontHeight(Graphics.FONT_SMALL)+5, Graphics.FONT_SMALL, lastUpdateStr, Graphics.TEXT_JUSTIFY_CENTER);
+
             
             return; // Stop drawing the rest of the UI until data arrives
         }

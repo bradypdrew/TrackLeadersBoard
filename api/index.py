@@ -2,12 +2,28 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
 import re
+import time
 
 app = Flask(__name__)
 CORS(app)
 
+# Simple in-memory cache
+# Format: { "race_id": {"timestamp": 1234567, "data": [...]} }
+cache = {}
+CACHE_DURATION = 600  # seconds
+
 @app.route('/race/<race_id>')
 def scrape_trackleaders(race_id):
+    current_time = time.time()
+
+    # Check if we have a valid cache
+    if race_id in cache:
+        entry = cache[race_id]
+        if current_time - entry['timestamp'] < CACHE_DURATION:
+            print(f"Returning CACHED data for {race_id}")
+            return jsonify(entry['data'])
+
+    # If no cache, scrape TrackLeaders
     # TrackLeaders often checks if you came from the main race page
     base_url = f"https://trackleaders.com/{race_id}"
     url = f"https://trackleaders.com/spot/{race_id}/sortlist.json"
@@ -65,6 +81,13 @@ def scrape_trackleaders(race_id):
                 })
 
         riders.sort(key=lambda x: x['m'], reverse=True)
+
+        # Store result in cache before returning
+        cache[race_id] = {
+            'timestamp': current_time,
+            'data': riders
+        }
+
         return jsonify(riders)
 
     except Exception as e:

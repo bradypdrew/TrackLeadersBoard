@@ -11,9 +11,10 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     public var riders = null as Array<Dictionary>; // Array to hold rider data
     public var startIdx = 0; // Used for scrolling
     public var width = 0;
-    private var secondCounter = 0;
-    private var fetchInterval = 600; // Time (in sec) between data fetches
+    private var lastFetchTime = 0; // Stores System.getTimer() value
+    private var FETCH_DELAY_MS = 600000; // Time (in msec) between data fetches
     private var lastUpdateStr = "--:--";
+    private var secondCounter = 0;
     private var _speed = 0.0;
     private var _power3s = 0;
     private var _powerSamples = [0, 0, 0] as Array<Number>;
@@ -68,6 +69,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     function fetchRiderData() {
         // FREE THE MEMORY FIRST
         riders = null;
+        lastUpdateStr = "Connecting...";
 
         var raceID = Application.Properties.getValue("RaceID");
         // We point to a middleware/proxy because Garmin cannot parse raw HTML
@@ -86,8 +88,9 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         System.println("Response Code: " + responseCode);
         var clock = System.getClockTime();
         if (responseCode == 200 && data != null) {
-            // Success! Update our riders array and refresh the screen
+            // Success! Update our riders array, set the fetch timer, and refresh the screen
             riders = data as Array<Dictionary>;
+            lastFetchTime = System.getTimer();
             // Format as HH:MM (e.g., 14:05 or 2:05)
             lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
             WatchUi.requestUpdate();
@@ -109,11 +112,17 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         var genderProp = Application.Properties.getValue("RacerGender");
         var categoryProp = Application.Properties.getValue("RacerCategory");
 
-        // Update the second counter
-        secondCounter = secondCounter + 1;
-        if (secondCounter >= fetchInterval) {
-            fetchRiderData();
-            secondCounter = 0;
+        // Update the fetch timer
+        var currentTime = System.getTimer();
+        if (lastFetchTime == 0 || (currentTime - lastFetchTime) >= FETCH_DELAY_MS) {
+            
+            // Safety: If a fetch is already in progress, don't start another
+            if (!lastUpdateStr.equals("Connecting...")) {
+                fetchRiderData();
+                // We set lastFetchTime to currentTime briefly to prevent 
+                // multiple triggers while the web request is in flight
+                lastFetchTime = currentTime; 
+            }
         }
 
         // Clear the clipping region and get the current background color
@@ -306,6 +315,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         }
 
         // Update scrolling index
+        secondCounter = secondCounter + 1;
         if (highlightFound) {
             if (secondCounter % slowScrollSpeed == 0) {
                 //startIdx = (startIdx + 1) % totalRiders;

@@ -8,11 +8,12 @@ import Toybox.Graphics;
 
 class TrackLeadersBoardView extends WatchUi.DataField {
     // GLOBAL VARIABLES
-    public var riders = null as Array<Dictionary>; // Array to hold rider data
+    public var riders = null as Array<Dictionary>;
     public var startIdx = 0; // Used for scrolling
     public var width = 0;
     private var lastFetchTime = 0; // Stores System.getTimer() value
     private var FETCH_DELAY_MS = 600000; // Time (in msec) between data fetches
+    private var _isFetching = false;
     private var lastUpdateStr = "--:--";
     private var secondCounter = 0;
     private var _speed = 0.0;
@@ -69,7 +70,6 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     function fetchRiderData() {
         // FREE THE MEMORY FIRST
         riders = null;
-        lastUpdateStr = "Connecting...";
 
         var raceID = Application.Properties.getValue("RaceID");
         // We point to a middleware/proxy because Garmin cannot parse raw HTML
@@ -85,19 +85,46 @@ class TrackLeadersBoardView extends WatchUi.DataField {
     }
 
     function onReceive(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _isFetching = false; 
         System.println("Response Code: " + responseCode);
         var clock = System.getClockTime();
+        var timeNow = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
+
         if (responseCode == 200 && data != null) {
-            // Success! Update our riders array, set the fetch timer, and refresh the screen
-            riders = data as Array<Dictionary>;
+            // SUCCESS
+            // Temporary list to hold filtered results
+            var tempRiders = [] as Array<Dictionary>;
+            var rawData = data as Array<Dictionary>;
+
+            // Get Filter Settings
+            var genderProp = Application.Properties.getValue("RacerGender");
+            var categoryProp = Application.Properties.getValue("RacerCategory");
+            var gFilter = (genderProp == null || genderProp.length() == 0) ? "ALL" : genderProp.toUpper();
+            var cFilter = (categoryProp == null || categoryProp.length() == 0) ? "ALL" : categoryProp.toUpper();
+
+            // Filter Riders Once
+            for (var i = 0; i < rawData.size(); i++) {
+                var r = rawData[i] as Dictionary;
+                var rGender = (r.get("g") != null) ? (r.get("g") as String).toUpper() : "";
+                var rCategory = (r.get("c") != null) ? (r.get("c") as String).toUpper() : "";
+
+                var genderMatch = (gFilter.equals("ALL") || rGender.equals(gFilter));
+                var categoryMatch = (cFilter.equals("ALL") || rCategory.equals(cFilter));
+
+                if (genderMatch && categoryMatch) {
+                    tempRiders.add(r);
+                }
+            }
+
+            // Update the CLASS VARIABLE that onUpdate uses
+            self.riders = tempRiders;
+            
             lastFetchTime = System.getTimer();
-            // Format as HH:MM (e.g., 14:05 or 2:05)
-            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d");
+            lastUpdateStr = timeNow;
             WatchUi.requestUpdate();
         } else {
-            lastUpdateStr = clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " - Error " + responseCode;
+            lastUpdateStr = timeNow + " - Error " + responseCode;
             WatchUi.requestUpdate();
-            System.println(clock.hour.format("%02d") + ":" + clock.min.format("%02d") + " - Error " + responseCode);
         }
     }
 
@@ -109,19 +136,14 @@ class TrackLeadersBoardView extends WatchUi.DataField {
 
         // Import Settings
         var highlightName = Application.Properties.getValue("RacerName");
-        var genderProp = Application.Properties.getValue("RacerGender");
-        var categoryProp = Application.Properties.getValue("RacerCategory");
 
         // Update the fetch timer
         var currentTime = System.getTimer();
         if (lastFetchTime == 0 || (currentTime - lastFetchTime) >= FETCH_DELAY_MS) {
-            
             // Safety: If a fetch is already in progress, don't start another
-            if (!lastUpdateStr.equals("Connecting...")) {
+            if (!_isFetching) {
+                _isFetching = true; // Lock it
                 fetchRiderData();
-                // We set lastFetchTime to currentTime briefly to prevent 
-                // multiple triggers while the web request is in flight
-                lastFetchTime = currentTime; 
             }
         }
 
@@ -210,28 +232,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             return; // Stop drawing the rest of the UI until data arrives
         }
 
-        // Filter riders based on gender and category, if specified
-        // Normalize: Treat null or empty as "ALL"
-        var gFilter = (genderProp == null || genderProp.length() == 0) ? "ALL" : genderProp.toUpper();
-        var cFilter = (categoryProp == null || categoryProp.length() == 0) ? "ALL" : categoryProp.toUpper();
-        var filteredRiders = [];
-        for (var i = 0; i < (riders as Array<Dictionary>).size(); i++) {
-            var r = (riders as Array<Dictionary>)[i] as Dictionary;
-            var rG = r.get("g");
-            var rC = r.get("c");
-            var rGender = (rG != null) ? (rG as String).toUpper() : "";
-            var rCategory = (rC != null) ? (rC as String).toUpper() : "";
-
-            // Match if filter is "ALL" OR if it's an exact match
-            var genderMatch = (gFilter.equals("ALL") || rGender.equals(gFilter));
-            var categoryMatch = (cFilter.equals("ALL") || rCategory.equals(cFilter));
-
-            if (genderMatch && categoryMatch) {
-                filteredRiders.add(r);
-            }
-        }
-
-        var totalRiders = filteredRiders.size();
+        var totalRiders = riders.size();
         if (totalRiders == 0) {
             dc.drawText(width/2, height/2, font, "No Matches Found", Graphics.TEXT_JUSTIFY_CENTER);
             return;
@@ -261,7 +262,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
             var virtualIdx = (startIdx + i) % virtualTotal;
             
             if (virtualIdx < totalRiders) {
-                var rider = filteredRiders[virtualIdx] as Dictionary;
+                var rider = (riders as Array<Dictionary>)[virtualIdx] as Dictionary;
                 // Use .get() and 'as' for the values too
                 var name = rider.get("n") as String;
                 var nameSearch = name.toUpper();

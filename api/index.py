@@ -23,27 +23,28 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # 1. Get the entry and immediately decode any remaining HTML/Unicode entities
-        # This turns things like \u003c into < and &amp; into &
-        raw_str = html.unescape(str(entry[0]))
+        # 1. Convert to string
+        raw_val = str(entry[0])
 
-        # 2. Find the content of the VERY LAST <a> tag.
-        # This regex looks for: 
-        # <a ...> (attributes) </a>
-        # We use re.findall so we can pick the last match in the list.
-        links = re.findall(r"<a[^>]*>(.*?)</a>", raw_str, re.IGNORECASE)
-
-        if links:
-            # The last link is always the rider's name
-            name_html = links[-1]
-            # Strip any internal tags (like <b> or <span>) that might be inside the name
-            name = re.sub(r'<[^>]+>', '', name_html).strip()
+        # 2. Look for the last occurrence of the "Greater Than" symbol.
+        # We check both the encoded and decoded versions.
+        if "\\u003e" in raw_val:
+            # Split at the last \u003e and take the right side
+            name_part = raw_val.split("\\u003e")[-1]
+        elif ">" in raw_val:
+            # Split at the last > and take the right side
+            name_part = raw_val.split(">")[-1]
         else:
-            # Fallback: if no links found, strip all HTML and take the result
-            name = re.sub(r'<[^>]+>', '', raw_str).strip()
+            name_part = raw_val
 
-        # 3. Clean up any leftover quotes or stray backslashes
-        name = name.replace('"', '').replace('\\', '').strip()
+        # 3. CLEANING THE DEBRIS
+        # TrackLeaders often puts </a> or <div> or <input> AFTER the name.
+        # We split by '<' and take the FIRST part (the left side).
+        name_clean = name_part.split("<")[0]
+
+        # 4. Final Polish
+        # Remove trailing quotes, backslashes, or whitespace
+        name = name_clean.replace('\\"', '').replace('"', '').replace('\\', '').strip()
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

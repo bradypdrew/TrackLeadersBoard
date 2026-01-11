@@ -20,8 +20,8 @@ def extract_riders_from_html(raw_data_list):
         if len(entry) < 2: continue
 
         # Extract Name
-        name_match = re.search(r"onClick='clrac\(\);'>(.*?)</a>", entry[0])
-        name = name_match.group(1) if name_match else "Unknown"
+        name_match = re.search(r">(.*?)</a>", entry[0])
+        name = name_match.group(1).strip() if name_match else "Unknown"
 
         # Extract Miles (The improved multi-match regex)
         val_str = str(entry[1])
@@ -69,7 +69,7 @@ def scrape_trackleaders(race_id):
 
         # Parse JSON response to populate riders if successful
         raw_data = response.json()
-        riders = extract_riders_from_html(raw_data)
+        riders = extract_riders_from_html(raw_data.get("data", []))
         riders.sort(key=lambda x: x['m'], reverse=True)
 
         # Cache the result

@@ -73,7 +73,7 @@ def scrape_trackleaders(race_id):
         
 
         # TRY THE MODERN JSON FIRST
-        response = session.get(f"{base_url}/sortlist.json", headers=headers, timeout=15)
+        resp = session.get(f"{base_url}/sortlist.json", headers=headers, timeout=15)
         if resp.status_code == 200:
             raw_json = resp.json()
             # If it's valid sortlist.json, we still pass it through our parser 

@@ -23,14 +23,23 @@ def extract_riders_from_html(raw_data_list):
 
         # --- EXTRACT NAME ---
         # Look for the rider name, which is usually the last text in the first column
-        val_name_raw = str(entry[0]).encode('utf-8').decode('unicode-escape')
-        name_match = re.findall(r"<a[^>]*>(.*?)</a>", val_name_raw)
-        # name_match will be a list of all text in <a> tags. The rider's name is always the LAST one.
-        if name_match:
-            # Get the last item and strip any remaining HTML tags (like <b> tags)
-            name = re.sub('<[^<]+?>', '', name_match[-1]).strip()
+        # 1. Get the raw string
+        val_name_raw = str(entry[0])
+
+        # 2. Look for the VERY LAST '>' symbol. 
+        # In your data, this is either the literal '>' or the encoded '\u003E'
+        if "\\u003e" in val_name_raw.lower():
+            # Split by the last encoded bracket and take the last piece
+            name = val_name_raw.split("\\u003e")[-1].strip()
+        elif ">" in val_name_raw:
+            # Split by the last literal bracket and take the last piece
+            name = val_name_raw.split(">")[-1].strip()
         else:
-            name = "Unknown"
+            # If no brackets found, just strip tags
+            name = re.sub(r'<[^>]+>', '', val_name_raw).strip()
+
+        # 3. Final cleanup: Remove any trailing </a> tags or quotes that might remain
+        name = name.replace("</a>", "").replace('"', '').replace("'", "").strip()
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

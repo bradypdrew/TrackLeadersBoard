@@ -23,33 +23,24 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # 1. Force the string into a predictable format
-        # We remove the double-escaping so we are just dealing with text
-        raw_str = str(entry[0]).replace('\\"', '"').replace("\\'", "'")
+        # 1. Clean up quotes and backslashes first
+        raw_val = str(entry[0]).replace('\\"', '"').replace("\\'", "'")
 
-        # 2. TrackLeaders uses \u003e OR > for the bracket. 
-        # We split by both to ensure we find the final one.
-        if "u003e" in raw_str:
-            parts = raw_str.split("u003e")
-        elif ">" in raw_str:
-            parts = raw_str.split(">")
+        # 2. TrackLeaders names are almost always inside the last <a> tag.
+        # We split by '</a>' and take the piece immediately to the left of it.
+        if "</a>" in raw_val:
+            # Get the part before the last </a>
+            parts = raw_val.split("</a>")
+            # Take the last link part
+            last_link_content = parts[-2] 
+            # The name is everything after the last '>' in that link content
+            name = last_link_content.split(">")[-1].strip()
         else:
-            parts = [raw_str]
+            # Fallback for plain text names: Split by > and <
+            name = raw_val.split(">")[-1].split("<")[0].strip()
 
-        # 3. Take the last piece of the split (the name)
-        # and immediately cut off any trailing tags like </a>, <div>, etc.
-        name_candidate = parts[-1].split("<")[0]
-
-        # 4. Final Cleanup
-        # This removes the leftover backslashes (\) and quotes (") 
-        # that are currently plaguing your "n" result.
-        name = name_candidate.replace("\\", "").replace('"', '').strip()
-
-        # 5. Fallback for "Map on Name (ID)" junk
-        # If the name still contains 'map on', it means the split missed the real name.
-        if "map on" in name.lower() and len(parts) > 1:
-            # Try the second to last part if the last one was a hidden input
-            name = parts[-2].split("<")[0].replace("\\", "").replace('"', '').strip()
+        # 3. Final Clean: Strip any remaining bold tags or stray quotes
+        name = re.sub(r'<[^>]+>', '', name).replace('"', '').replace('\\', '').strip()
 
         # Add these inside the loop to debug
         print(f"DEBUG RAW: {entry[0][:100]}...") # See the first 100 chars

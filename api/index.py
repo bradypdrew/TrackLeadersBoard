@@ -23,28 +23,23 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # 1. Convert to string
-        raw_val = str(entry[0])
+        # 1. DECODE THE MESS
+        # This converts \u003c... into <... and &amp; into &
+        # We do this twice to ensure all layers of encoding are gone.
+        raw_val = str(entry[0]).encode('utf-8').decode('unicode-escape')
+        clean_html = html.unescape(raw_val)
 
-        # 2. Look for the last occurrence of the "Greater Than" symbol.
-        # We check both the encoded and decoded versions.
-        if "\\u003e" in raw_val:
-            # Split at the last \u003e and take the right side
-            name_part = raw_val.split("\\u003e")[-1]
-        elif ">" in raw_val:
-            # Split at the last > and take the right side
-            name_part = raw_val.split(">")[-1]
+        # 2. ISOLATE THE NAME
+        # The rider's name is the text inside the LAST <a> tag.
+        # We use re.findall to find all text inside tags like <a ...>Name</a>
+        names_found = re.findall(r'<a[^>]*>([^<]+)</a>', clean_html)
+        
+        if names_found:
+            # The name is ALWAYS the last link in the string
+            name = names_found[-1].strip()
         else:
-            name_part = raw_val
-
-        # 3. CLEANING THE DEBRIS
-        # TrackLeaders often puts </a> or <div> or <input> AFTER the name.
-        # We split by '<' and take the FIRST part (the left side).
-        name_clean = name_part.split("<")[0]
-
-        # 4. Final Polish
-        # Remove trailing quotes, backslashes, or whitespace
-        name = name_clean.replace('\\"', '').replace('"', '').replace('\\', '').strip()
+            # If no <a> tag, just strip all HTML tags and take what's left
+            name = re.sub(r'<[^>]+>', '', clean_html).strip()
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

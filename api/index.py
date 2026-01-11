@@ -23,10 +23,14 @@ def extract_riders_from_html(raw_data_list):
 
         # --- EXTRACT NAME ---
         # Look for the rider name, which is usually the last text in the first column
-        # OR inside the last <a> tag.
         val_name_raw = str(entry[0])
-        name_match = re.findall(r">(.*?)</a>", val_name_raw)
-        name = name_match[-1].strip() if name_match else "Unknown"
+        name_match = re.findall(r"<a[^>]*>(.*?)</a>", val_name_raw)
+        # name_match will be a list of all text in <a> tags. The rider's name is always the LAST one.
+        if name_match:
+            # Get the last item and strip any remaining HTML tags (like <b> tags)
+            name = re.sub('<[^<]+?>', '', name_match[-1]).strip()
+        else:
+            name = "Unknown"
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

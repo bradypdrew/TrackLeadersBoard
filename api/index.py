@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+import html
 import requests
 import re
 import time
@@ -22,24 +23,25 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # Look for the rider name, which is usually the last text in the first column
-        # 1. Get the raw string
-        val_name_raw = str(entry[0])
+        # 1. DECODE THE UNICODE & HTML
+        # This converts \u003c... into <... and &amp; into &
+        raw_name_html = entry[0].encode('utf-8').decode('unicode-escape')
+        raw_name_html = html.unescape(raw_name_html)
 
-        # 2. Look for the VERY LAST '>' symbol. 
-        # In your data, this is either the literal '>' or the encoded '\u003E'
-        if "\\u003e" in val_name_raw.lower():
-            # Split by the last encoded bracket and take the last piece
-            name = val_name_raw.split("\\u003e")[-1].strip()
-        elif ">" in val_name_raw:
-            # Split by the last literal bracket and take the last piece
-            name = val_name_raw.split(">")[-1].strip()
+        # 2. EXTRACT THE TERMINAL NAME
+        # Trackleaders maps follow a pattern: [Icon][Fav][History Link]Name
+        # The name is the only text not inside an attribute.
+        # This regex finds all text between > and <
+        text_segments = re.findall(r'>([^<]+)<', raw_name_html)
+        
+        if text_segments:
+            # We filter out segments that are just whitespace
+            # and take the LAST one, which is the actual rider name.
+            clean_segments = [t.strip() for t in text_segments if len(t.strip()) > 1]
+            name = clean_segments[-1] if clean_segments else "Unknown"
         else:
-            # If no brackets found, just strip tags
-            name = re.sub(r'<[^>]+>', '', val_name_raw).strip()
-
-        # 3. Final cleanup: Remove any trailing </a> tags or quotes that might remain
-        name = name.replace("</a>", "").replace('"', '').replace("'", "").strip()
+            # Fallback: Strip all tags if no segments found
+            name = re.sub(r'<[^>]+>', '', raw_name_html).strip()
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

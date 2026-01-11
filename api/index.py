@@ -56,8 +56,21 @@ def scrape_trackleaders(race_id):
 
                 # 2. EXTRACT MILES
                 val_str = str(entry[1])
-                mile_match = re.search(r"'>([\d\.]+)\s*mi", val_str)
-                miles = float(mile_match.group(1)) if mile_match else (999.0 if "FIN" in val_str else 0.0)
+                # This regex looks for:
+                # 1. Any digits/decimals
+                # 2. Followed by optional space
+                # 3. Followed by "mi" OR "miles" OR "mile"
+                mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_str, re.IGNORECASE)
+
+                if mile_match:
+                    miles = float(mile_match.group(1))
+                elif "FIN" in val_str or "Finish" in val_str:
+                    miles = 999.0
+                else:
+                    # Try one last fallback: look for the number after the arrow/tag
+                    # sometimes TrackLeaders changes the tag structure
+                    fallback = re.search(r">([\d\.]+)<", val_str)
+                    miles = float(fallback.group(1)) if fallback else 0.0
 
                 # 3. EXTRACT METADATA (Gender & Category)
                 # Look for the value attribute in the hidden input

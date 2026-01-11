@@ -14,30 +14,67 @@ CACHE_DURATION = 600  # seconds
 
 def extract_riders_from_html(raw_data_list):
     # Parses the raw HTML data to extract rider information
+
     riders = []
     for entry in raw_data_list:
-        # Skip invalid entries
-        if len(entry) < 2: continue
+        # Check for data presence
+        if len(entry) < 2:
+            continue
 
-        # Extract Name
-        name_match = re.search(r"onClick='clrac\(\);'>(.*?)</a>", entry[0])
-        name = name_match.group(1) if name_match else "Unknown"
+        # --- EXTRACT NAME ---
+        # Look for the rider name, which is usually the last text in the first column
+        # OR inside the last <a> tag.
+        val_name_raw = str(entry[0])
+        name_match = re.findall(r">(.*?)</a>", val_name_raw)
+        name = name_match[-1].strip() if name_match else "Unknown"
 
-        # Extract Miles (The improved multi-match regex)
-        val_str = str(entry[1])
-        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_str, re.IGNORECASE)
-        miles = float(mile_match.group(1)) if mile_match else (9999.0 if "FIN" in val_str else 0.0)
+        # --- EXTRACT MILES ---
+        # We check column 2 (index 2) first for Copper-style, 
+        # then fallback to column 1 for older formats.
+        val_miles_raw = ""
+        if len(entry) > 2:
+            val_miles_raw = str(entry[2]) # Column 3 (Index 2)
+        else:
+            val_miles_raw = str(entry[1]) # Column 2 (Index 1)
 
-        # Extract Metadata
-        meta_match = re.search(r"value='(.*?)'", entry[0])
-        gender, category = "", ""
+        # Regex: find any decimal number followed by 'mi' or 'miles'
+        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_miles_raw, re.IGNORECASE)
+        
+        if mile_match:
+            miles = float(mile_match.group(1))
+        elif "FIN" in val_miles_raw or "Finish" in val_miles_raw:
+            miles = 999.0
+        else:
+            # Final fallback: just look for ANY decimal number in the mile column
+            fallback = re.search(r"([\d\.]+)", val_miles_raw)
+            miles = float(fallback.group(1)) if fallback else 0.0
+
+        # --- EXTRACT METADATA (Gender & Category) ---
+        # We look for value='ID,Type,Rank,Status,Gender,Category...'
+        gender = ""
+        category = ""
+        meta_match = re.search(r"value='(.*?)'", val_name_raw)
+        
         if meta_match:
             parts = meta_match.group(1).split(',')
-            # Index 4 is usually Gender, Index 7 is usually Category
-            gender = parts[4].strip() if len(parts) > 4 else ""
-            category = parts[7].strip() if len(parts) > 7 else ""
+            # Index logic for Florida 500:
+            # Usually: [0:ID, 1:Main, 2:Rank, 3:Age, 4:Gender, 7:Category]
+            if len(parts) > 4:
+                gender = parts[4].strip()
+            if len(parts) > 7:
+                category = parts[7].strip()
+            # If parts[7] is empty, sometimes Category is at index 5 or 6 
+            # depending on the specific race template
+            if not category and len(parts) > 5:
+                category = parts[5].strip()
 
-        riders.append({"n": name, "m": miles, "g": gender, "c": category})
+        riders.append({
+            "n": name, 
+            "m": miles, 
+            "g": gender, 
+            "c": category
+        })
+
     return riders
 
 @app.route('/race/<race_id>')

@@ -68,7 +68,7 @@ def extract_riders_from_html(raw_data_list):
         # We look for value='ID,Type,Rank,Status,Gender,Category...'
         gender = ""
         category = ""
-        meta_match = re.search(r"value='(.*?)'", val_name_raw)
+        meta_match = re.search(r"value='(.*?)'", str(entry[0]))
         
         if meta_match:
             parts = meta_match.group(1).split(',')

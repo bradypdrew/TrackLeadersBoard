@@ -23,7 +23,7 @@ def extract_riders_from_html(raw_data_list):
 
         # --- EXTRACT NAME ---
         # Look for the rider name, which is usually the last text in the first column
-        val_name_raw = str(entry[0])
+        val_name_raw = str(entry[0]).encode('utf-8').decode('unicode-escape')
         name_match = re.findall(r"<a[^>]*>(.*?)</a>", val_name_raw)
         # name_match will be a list of all text in <a> tags. The rider's name is always the LAST one.
         if name_match:

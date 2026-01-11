@@ -86,10 +86,19 @@ def scrape_trackleaders(race_id):
             if resp.status_code != 200:
                 return jsonify({"error": "Race not found"}), 404
             
-            # Scrape the 'var spots' array out of the HTML
-            spots_match = re.search(r"var\s+spots\s*=\s*(\[.*?\]);", resp.text, re.DOTALL)
+            # A. Check if data is already in the HTML
+            spots_match = re.search(r"var\s+(?:spots|markers|points)\s*=\s*(\[.*?\]);", resp.text, re.DOTALL)
+            
+            # B. If NOT in HTML, find the .js file link
             if not spots_match:
-                return jsonify({"error": "Could not find spot data"}), 500
+                js_link_match = re.search(r'src="([^"]*?spots\.js)"', resp.text)
+                if js_link_match:
+                    js_url = f"https://trackleaders.com/{js_link_match.group(1)}"
+                    js_resp = session.get(js_url, headers=headers, timeout=10)
+                    spots_match = re.search(r"var\s+(?:spots|markers|points)\s*=\s*(\[.*?\]);", js_resp.text, re.DOTALL)
+
+            if not spots_match:
+                return jsonify({"error": "Could not find spot data in PHP or JS file"}), 500
             
             import json
             raw_data_list = json.loads(spots_match.group(1))

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <properties>
-        <property id="RaceID" type="string">copper26</property>
+        <property id="RaceID" type="string">florida500-25</property>
         <property id="RacerName" type="string"></property>
         <property id="RacerGender" type="string"></property>
         <property id="RacerCategory" type="string"></property>

@@ -23,25 +23,29 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # 1. DECODE THE UNICODE & HTML
-        # This converts \u003c... into <... and &amp; into &
-        raw_name_html = entry[0].encode('utf-8').decode('unicode-escape')
-        raw_name_html = html.unescape(raw_name_html)
+        # 1. Get the raw string as a plain string
+        val_name_raw = str(entry[0])
 
-        # 2. EXTRACT THE TERMINAL NAME
-        # Trackleaders maps follow a pattern: [Icon][Fav][History Link]Name
-        # The name is the only text not inside an attribute.
-        # This regex finds all text between > and <
-        text_segments = re.findall(r'>([^<]+)<', raw_name_html)
-        
-        if text_segments:
-            # We filter out segments that are just whitespace
-            # and take the LAST one, which is the actual rider name.
-            clean_segments = [t.strip() for t in text_segments if len(t.strip()) > 1]
-            name = clean_segments[-1] if clean_segments else "Unknown"
+        # 2. Trackleaders uses \u003e or > to separate the code from the name.
+        # We split by both to find the absolute last piece of the string.
+        if "\\u003e" in val_name_raw:
+            name = val_name_raw.split("\\u003e")[-1]
+        elif ">" in val_name_raw:
+            name = val_name_raw.split(">")[-1]
         else:
-            # Fallback: Strip all tags if no segments found
-            name = re.sub(r'<[^>]+>', '', raw_name_html).strip()
+            name = val_name_raw
+
+        # 3. CLEANUP: Remove the trailing quotes, tags, and hidden inputs 
+        # that Trackleaders sticks at the end of the name.
+        # Remove the closing </a> tag
+        name = name.split("</a")[0]
+        # Remove the closing </div> tag if it exists
+        name = name.split("<div")[0]
+        # Strip out literal backslashes and double quotes
+        name = name.replace('\\"', '').replace('"', '').strip()
+
+        # 4. Final check: If there are still tags, strip them
+        name = re.sub(r'<[^>]+>', '', name).strip()
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

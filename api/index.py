@@ -49,6 +49,7 @@ def scrape_trackleaders(race_id):
     # Clean the race_id just in case
     race_id = race_id.strip().lower()
     base_url = f"https://trackleaders.com/{race_id}"
+    json_url = f"https://trackleaders.com/spot/{race_id}/sortlist.json"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -62,7 +63,7 @@ def scrape_trackleaders(race_id):
         session = requests.Session()
         
         # Fetch the sortlist.json endpoint
-        response = session.get(f"{base_url}/sortlist.json", headers=headers, timeout=10)
+        response = session.get(json_url, headers=headers, timeout=10)
         if response.status_code != 200:
             return jsonify({"error": f"TrackLeaders returned status {response.status_code}"}), response.status_code
 

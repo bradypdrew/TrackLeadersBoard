@@ -23,23 +23,37 @@ def extract_riders_from_html(raw_data_list):
             continue
 
         # --- EXTRACT NAME ---
-        # 1. DECODE THE MESS
-        # This converts \u003c... into <... and &amp; into &
-        # We do this twice to ensure all layers of encoding are gone.
-        raw_val = str(entry[0]).encode('utf-8').decode('unicode-escape')
-        clean_html = html.unescape(raw_val)
+        # 1. Force the string into a predictable format
+        # We remove the double-escaping so we are just dealing with text
+        raw_str = str(entry[0]).replace('\\"', '"').replace("\\'", "'")
 
-        # 2. ISOLATE THE NAME
-        # The rider's name is the text inside the LAST <a> tag.
-        # We use re.findall to find all text inside tags like <a ...>Name</a>
-        names_found = re.findall(r'<a[^>]*>([^<]+)</a>', clean_html)
-        
-        if names_found:
-            # The name is ALWAYS the last link in the string
-            name = names_found[-1].strip()
+        # 2. TrackLeaders uses \u003e OR > for the bracket. 
+        # We split by both to ensure we find the final one.
+        if "u003e" in raw_str:
+            parts = raw_str.split("u003e")
+        elif ">" in raw_str:
+            parts = raw_str.split(">")
         else:
-            # If no <a> tag, just strip all HTML tags and take what's left
-            name = re.sub(r'<[^>]+>', '', clean_html).strip()
+            parts = [raw_str]
+
+        # 3. Take the last piece of the split (the name)
+        # and immediately cut off any trailing tags like </a>, <div>, etc.
+        name_candidate = parts[-1].split("<")[0]
+
+        # 4. Final Cleanup
+        # This removes the leftover backslashes (\) and quotes (") 
+        # that are currently plaguing your "n" result.
+        name = name_candidate.replace("\\", "").replace('"', '').strip()
+
+        # 5. Fallback for "Map on Name (ID)" junk
+        # If the name still contains 'map on', it means the split missed the real name.
+        if "map on" in name.lower() and len(parts) > 1:
+            # Try the second to last part if the last one was a hidden input
+            name = parts[-2].split("<")[0].replace("\\", "").replace('"', '').strip()
+
+        # Add these inside the loop to debug
+        print(f"DEBUG RAW: {entry[0][:100]}...") # See the first 100 chars
+        print(f"DEBUG EXTRACTED NAME: {name}")
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 

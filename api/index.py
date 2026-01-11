@@ -12,6 +12,38 @@ CORS(app)
 cache = {}
 CACHE_DURATION = 600  # seconds
 
+def extract_riders_from_html(raw_data_list):
+    """Legacy parser for 'spots' array format found in f.php/spots.js"""
+    riders = []
+    for entry in raw_data_list:
+        if len(entry) < 2: continue
+
+        # 1. Extract Name
+        name_match = re.search(r"onClick='clrac\(\);'>(.*?)</a>", entry[0])
+        name = name_match.group(1) if name_match else "Unknown"
+
+        # 2. Extract Miles (The improved multi-match regex)
+        val_str = str(entry[1])
+        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_str, re.IGNORECASE)
+        
+        if mile_match:
+            miles = float(mile_match.group(1))
+        else:
+            # Fallback for copper26 and others
+            fallback = re.search(r"(?:Mile|Distance|CP):\s*([\d\.]+)", val_str, re.IGNORECASE)
+            miles = float(fallback.group(1)) if fallback else 0.0
+
+        # 3. Extract Metadata
+        meta_match = re.search(r"value='(.*?)'", entry[0])
+        gender, category = "", ""
+        if meta_match:
+            parts = meta_match.group(1).split(',')
+            gender = parts[4].strip() if len(parts) > 4 else ""
+            category = parts[7].strip() if len(parts) > 7 else ""
+
+        riders.append({"n": name, "m": miles, "g": gender, "c": category})
+    return riders
+
 @app.route('/race/<race_id>')
 def scrape_trackleaders(race_id):
     current_time = time.time()
@@ -26,7 +58,6 @@ def scrape_trackleaders(race_id):
     # If no cache, scrape TrackLeaders
     # TrackLeaders often checks if you came from the main race page
     base_url = f"https://trackleaders.com/{race_id}"
-    url = f"https://trackleaders.com/spot/{race_id}/sortlist.json"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -39,68 +70,34 @@ def scrape_trackleaders(race_id):
     try:
         # Using a session can help handle cookies if TrackLeaders starts requiring them
         session = requests.Session()
-        response = session.get(url, headers=headers, timeout=15)
         
-        if response.status_code != 200:
-             return jsonify({"error": f"TrackLeaders returned status {response.status_code}"}), response.status_code
+
+        # TRY THE MODERN JSON FIRST
+        response = session.get(f"{base_url}/sortlist.json", headers=headers, timeout=15)
+        if resp.status_code == 200:
+            raw_json = resp.json()
+            # If it's valid sortlist.json, we still pass it through our parser 
+            # to keep the output format consistent for Garmin
+            riders = extract_riders_from_html(raw_json.get("data", []))
         
-        # It should be valid JSON
-        raw_data = response.json()
-        riders = []
+        else:
+            # STEP 2: Try f.php (The "Legacy/Copper26" way)
+            resp = session.get(f"{base_url}f.php", headers=headers, timeout=10)
+            if resp.status_code != 200:
+                return jsonify({"error": "Race not found"}), 404
+            
+            # Scrape the 'var spots' array out of the HTML
+            spots_match = re.search(r"var\s+spots\s*=\s*(\[.*?\]);", resp.text, re.DOTALL)
+            if not spots_match:
+                return jsonify({"error": "Could not find spot data"}), 500
+            
+            import json
+            raw_data_list = json.loads(spots_match.group(1))
+            riders = extract_riders_from_html(raw_data_list)
 
-        for entry in raw_data.get("data", []):
-            if len(entry) >= 2:
-                # 1. EXTRACT NAME
-                name_match = re.search(r"onClick='clrac\(\);'>(.*?)</a>", entry[0])
-                name = name_match.group(1) if name_match else "Unknown"
-
-                # 2. EXTRACT MILES
-                val_str = str(entry[1])
-                # This regex looks for:
-                # 1. Any digits/decimals
-                # 2. Followed by optional space
-                # 3. Followed by "mi" OR "miles" OR "mile"
-                mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_str, re.IGNORECASE)
-
-                if mile_match:
-                    miles = float(mile_match.group(1))
-                elif "FIN" in val_str or "Finish" in val_str:
-                    miles = 999.0
-                else:
-                    # Try one last fallback: look for the number after the arrow/tag
-                    # sometimes TrackLeaders changes the tag structure
-                    fallback = re.search(r">([\d\.]+)<", val_str)
-                    miles = float(fallback.group(1)) if fallback else 0.0
-
-                # 3. EXTRACT METADATA (Gender & Category)
-                # Look for the value attribute in the hidden input
-                meta_match = re.search(r"value='(.*?)'", entry[0])
-                gender = ""
-                category = ""
-                
-                if meta_match:
-                    parts = meta_match.group(1).split(',')
-                    # Index 4 is usually Gender, Index 7 is usually Category
-                    if len(parts) > 4:
-                        gender = parts[4].strip()
-                    if len(parts) > 7:
-                        category = parts[7].strip()
-
-                riders.append({
-                    "n": name, 
-                    "m": miles, 
-                    "g": gender,   # "Men" or "Women"
-                    "c": category  # "Solo Unsupported", "2-person Relay", etc.
-                })
-
+        # Final Processing
         riders.sort(key=lambda x: x['m'], reverse=True)
-
-        # Store result in cache before returning
-        cache[race_id] = {
-            'timestamp': current_time,
-            'data': riders
-        }
-
+        cache[race_id] = {'timestamp': current_time, 'data': riders}
         return jsonify(riders)
 
     except Exception as e:

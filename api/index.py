@@ -93,7 +93,15 @@ def scrape_trackleaders(race_id):
             if not spots_match:
                 js_link_match = re.search(r'src="([^"]*?spots\.js)"', resp.text)
                 if js_link_match:
-                    js_url = f"https://trackleaders.com/{js_link_match.group(1)}"
+                    js_path = js_link_match.group(1)
+                    # Ensure we have a full URL. If it's relative, prepend the base domain
+                    if js_path.startswith('http'):
+                        js_url = js_path
+                    else:
+                        # Strip leading slashes and join to the root
+                        js_url = f"https://trackleaders.com/{js_path.lstrip('/')}"
+                    
+                    print(f"Fetching JS fallback from: {js_url}") # Helps in Vercel logs
                     js_resp = session.get(js_url, headers=headers, timeout=10)
                     spots_match = re.search(r"var\s+(?:spots|markers|points)\s*=\s*(\[.*?\]);", js_resp.text, re.DOTALL)
 

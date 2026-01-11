@@ -43,8 +43,8 @@ def extract_riders_from_html(raw_data_list):
         name = re.sub(r'<[^>]+>', '', name).replace('"', '').replace('\\', '').strip()
 
         # Add these inside the loop to debug
-        print(f"DEBUG RAW: {entry[0][:100]}...") # See the first 100 chars
-        print(f"DEBUG EXTRACTED NAME: {name}")
+        #print(f"DEBUG RAW: {entry[0][:100]}...") # See the first 100 chars
+        #print(f"DEBUG EXTRACTED NAME: {name}")
 
         # --- EXTRACT MILES ---
         # We check column 2 (index 2) first for Copper-style, 
@@ -61,7 +61,7 @@ def extract_riders_from_html(raw_data_list):
         if mile_match:
             miles = float(mile_match.group(1))
         elif "FIN" in val_miles_raw or "Finish" in val_miles_raw:
-            miles = 999.0
+            miles = 9999.0
         else:
             # Final fallback: just look for ANY decimal number in the mile column
             fallback = re.search(r"([\d\.]+)", val_miles_raw)

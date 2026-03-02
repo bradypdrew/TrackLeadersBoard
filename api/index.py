@@ -47,24 +47,26 @@ def extract_riders_from_html(raw_data_list):
         #print(f"DEBUG EXTRACTED NAME: {name}")
 
         # --- EXTRACT MILES ---
-        if len(entry) > 2:
-            val_miles_raw = str(entry[2]) # Column 3 (Index 2)
+        # Explicitly check for 3 columns. 
+        # Copper and Florida 500 both put miles in the 3rd column (index 2)
+        if len(entry) >= 3:
+            val_miles_raw = str(entry[2])
         else:
-            val_miles_raw = str(entry[1]) # Column 2 (Index 1)
+            val_miles_raw = str(entry[1])
 
-        # NEW STEP: Strip all HTML tags so we only look at visible text.
-        # This removes <input value='855591'> so it can't be accidentally parsed.
+        # Strip all HTML tags to avoid hidden IDs
         visible_miles_text = re.sub(r'<[^>]+>', '', val_miles_raw)
 
-        # Regex: find any decimal number followed by 'mi' or 'miles' in the CLEAN text
+        # Regex: Look for the number associated with distance
         mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", visible_miles_text, re.IGNORECASE)
         
         if mile_match:
             miles = float(mile_match.group(1))
-        elif "FIN" in visible_miles_text.upper() or "FINISH" in visible_miles_text.upper():
+        elif "FIN" in visible_miles_text.upper():
             miles = 9999.0
         else:
-            # Now the fallback only sees "117.6" instead of "855591"
+            # Fallback: find any number. 
+            # Because we stripped HTML, this will find "117.6" instead of a 6-digit ID
             fallback = re.search(r"([\d\.]+)", visible_miles_text)
             miles = float(fallback.group(1)) if fallback else 0.0
 

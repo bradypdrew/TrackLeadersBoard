@@ -46,29 +46,41 @@ def extract_riders_from_html(raw_data_list):
         #print(f"DEBUG RAW: {entry[0][:100]}...") # See the first 100 chars
         #print(f"DEBUG EXTRACTED NAME: {name}")
 
-        # --- EXTRACT MILES ---
-        # Explicitly check for 3 columns. 
-        # Copper and Florida 500 both put miles in the 3rd column (index 2)
-        if len(entry) >= 3:
-            val_miles_raw = str(entry[2])
-        else:
-            val_miles_raw = str(entry[1])
+        # --- EXTRACT MILES (Dynamic Search) ---
+        miles = 0.0
+        found_miles = False
 
-        # Strip all HTML tags to avoid hidden IDs
-        visible_miles_text = re.sub(r'<[^>]+>', '', val_miles_raw)
+        # Loop through every column in this rider's data row
+        for col_value in entry:
+            col_str = str(col_value)
+            
+            # 1. Strip HTML tags to see the visible text
+            visible_text = re.sub(r'<[^>]+>', '', col_str).strip()
 
-        # Regex: Look for the number associated with distance
-        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", visible_miles_text, re.IGNORECASE)
-        
-        if mile_match:
-            miles = float(mile_match.group(1))
-        elif "FIN" in visible_miles_text.upper():
-            miles = 9999.0
-        else:
-            # Fallback: find any number. 
-            # Because we stripped HTML, this will find "117.6" instead of a 6-digit ID
-            fallback = re.search(r"([\d\.]+)", visible_miles_text)
-            miles = float(fallback.group(1)) if fallback else 0.0
+            # 2. Look for the "mi" or "miles" marker
+            mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", visible_text, re.IGNORECASE)
+            
+            if mile_match:
+                miles = float(mile_match.group(1))
+                found_miles = True
+                break # We found it, stop looking in other columns
+            
+            # 3. Handle Finishers
+            elif "FIN" in visible_text.upper():
+                miles = 9999.0
+                found_miles = True
+                break
+
+        # 4. Fallback (If no column had "mi", try to find a number in the 3rd or 4th col)
+        if not found_miles:
+            # Check column 2 then 3
+            for i in [2, 3]:
+                if len(entry) > i:
+                    fallback_text = re.sub(r'<[^>]+>', '', str(entry[i]))
+                    fallback_match = re.search(r"([\d\.]+)", fallback_text)
+                    if fallback_match:
+                        miles = float(fallback_match.group(1))
+                        break
 
         # --- EXTRACT METADATA (Gender & Category) ---
         # We look for value='ID,Type,Rank,Status,Gender,Category...'

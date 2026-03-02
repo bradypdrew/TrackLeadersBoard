@@ -47,24 +47,25 @@ def extract_riders_from_html(raw_data_list):
         #print(f"DEBUG EXTRACTED NAME: {name}")
 
         # --- EXTRACT MILES ---
-        # We check column 2 (index 2) first for Copper-style, 
-        # then fallback to column 1 for older formats.
-        val_miles_raw = ""
         if len(entry) > 2:
             val_miles_raw = str(entry[2]) # Column 3 (Index 2)
         else:
             val_miles_raw = str(entry[1]) # Column 2 (Index 1)
 
-        # Regex: find any decimal number followed by 'mi' or 'miles'
-        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", val_miles_raw, re.IGNORECASE)
+        # NEW STEP: Strip all HTML tags so we only look at visible text.
+        # This removes <input value='855591'> so it can't be accidentally parsed.
+        visible_miles_text = re.sub(r'<[^>]+>', '', val_miles_raw)
+
+        # Regex: find any decimal number followed by 'mi' or 'miles' in the CLEAN text
+        mile_match = re.search(r"([\d\.]+)\s*(?:mi|miles|mile)", visible_miles_text, re.IGNORECASE)
         
         if mile_match:
             miles = float(mile_match.group(1))
-        elif "FIN" in val_miles_raw or "Finish" in val_miles_raw:
+        elif "FIN" in visible_miles_text.upper() or "FINISH" in visible_miles_text.upper():
             miles = 9999.0
         else:
-            # Final fallback: just look for ANY decimal number in the mile column
-            fallback = re.search(r"([\d\.]+)", val_miles_raw)
+            # Now the fallback only sees "117.6" instead of "855591"
+            fallback = re.search(r"([\d\.]+)", visible_miles_text)
             miles = float(fallback.group(1)) if fallback else 0.0
 
         # --- EXTRACT METADATA (Gender & Category) ---

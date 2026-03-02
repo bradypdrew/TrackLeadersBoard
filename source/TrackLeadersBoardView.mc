@@ -71,8 +71,7 @@ class TrackLeadersBoardView extends WatchUi.DataField {
         // FREE THE MEMORY FIRST
         riders = null;
 
-        //var raceID = Application.Properties.getValue("RaceID");
-        var raceID = "Copper26";
+        var raceID = Application.Properties.getValue("RaceID");
         // We point to a middleware/proxy because Garmin cannot parse raw HTML
         var url = "https://track-leaders-board-6hj2.vercel.app/race/" + raceID; 
 
